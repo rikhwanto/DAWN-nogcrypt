@@ -12,7 +12,6 @@
 #include "dawn_uci.h"
 #include "dawn_iwinfo.h"
 #include "tcpsocket.h"
-#include "crypto.h"
 
 void daemon_shutdown();
 
@@ -104,10 +103,6 @@ int main(int argc, char **argv) {
     // TODO: Why the extra loacl struct to retuen into?
     struct network_config_s net_config = uci_get_dawn_network();
     network_config = net_config;
-
-    // init crypto
-    gcrypt_init();
-    gcrypt_set_key_and_iv(net_config.shared_key, net_config.iv);
 
     // TODO: Why the extra loacl struct to retuen into?
     struct time_config_s time_config = uci_get_time_config();

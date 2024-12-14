@@ -4,7 +4,6 @@
 
 #include "memory_utils.h"
 #include "msghandler.h"
-#include "crypto.h"
 #include "datastorage.h"
 #include "tcpsocket.h"
 
@@ -188,20 +187,7 @@ static void client_read_cb(struct ustream *s, int bytes) {
                 goto process_done;
             }
 
-            if (network_config.use_symm_enc) {
-                char *dec = gcrypt_decrypt_msg(cl->str + HEADER_SIZE, cl->final_len - HEADER_SIZE);//len of str is final_len
-                if (!dec) {
-                    dawnlog_error("not enough memory (" STR_QUOTE(__LINE__) ")\n");
-                    dawn_free(cl->str);
-                    cl->str = NULL;
-                    break;
-                }
-                handle_network_msg(dec);
-                dawn_free(dec);
-                dec = NULL;
-            } else {
-                handle_network_msg(cl->str + HEADER_SIZE);//len of str is final_len
-            }
+            handle_network_msg(cl->str + HEADER_SIZE);//len of str is final_len
 
 process_done:
             cl->state = READ_STATUS_READY;
@@ -389,85 +375,40 @@ void send_tcp(char *msg) {
         print_tcp_array();
 
     struct network_con_s *con, *tmp;
-    if (network_config.use_symm_enc) {
-        int length_enc;
-        size_t msglen = strlen(msg)+1;
-        char *enc = gcrypt_encrypt_msg(msg, msglen, &length_enc);
-        if (!enc){
-            dawnlog_error("Ustream error: not enough memory (" STR_QUOTE(__LINE__) ")\n");
-            return;
-        }
 
-        uint32_t final_len = length_enc + sizeof(final_len);
-        char *final_str = dawn_malloc(final_len);
-        if (!final_str){
-            dawn_free(enc);
-            enc = NULL;
-            dawnlog_error("Ustream error: not enough memory (" STR_QUOTE(__LINE__) ")\n");
-            return;
-        }
-        uint32_t *msg_header = (uint32_t *)final_str;
-        *msg_header = htonl(final_len);
-        memcpy(final_str+sizeof(final_len), enc, length_enc);
-        list_for_each_entry_safe(con, tmp, &tcp_sock_list, list)
-        {
-            if (con->connected) {
-                int len_ustream = ustream_write(&con->stream.stream, final_str, final_len, 0);
-                dawnlog_debug("Ustream send: %d\n", len_ustream);
-                if (len_ustream <= 0) {
-                    dawnlog_error("Ustream error(" STR_QUOTE(__LINE__) ")!\n");
-                    //ERROR HANDLING!
-                    if (con->stream.stream.write_error) {
-                        ustream_free(&con->stream.stream);
-                        dawn_unregmem(&con->stream.stream);
-                        close(con->fd.fd);
-                        list_del(&con->list);
-                        dawn_free(con);
-                        con = NULL;
-                    }
-                }
-            }
-
-        }
-
-        dawn_free(final_str);
-        final_str = NULL;
-        dawn_free(enc);
-        enc = NULL;
-    } else {
-        size_t msglen = strlen(msg) + 1;
-        uint32_t final_len = msglen + sizeof(final_len);
-        char *final_str = dawn_malloc(final_len);
-        if (!final_str){
-            dawnlog_error("Ustream error: not enough memory (" STR_QUOTE(__LINE__) ")\n");
-            return;
-        }
-        uint32_t *msg_header = (uint32_t *)final_str;
-        *msg_header = htonl(final_len);
-        memcpy(final_str+sizeof(final_len), msg, msglen);
-
-        list_for_each_entry_safe(con, tmp, &tcp_sock_list, list)
-        {
-            if (con->connected) {
-                int len_ustream = ustream_write(&con->stream.stream, final_str, final_len, 0);
-                dawnlog_debug("Ustream send: %d\n", len_ustream);
-                if (len_ustream <= 0) {
-                    //ERROR HANDLING!
-                    dawnlog_error("Ustream error(" STR_QUOTE(__LINE__) ")!\n");
-                    if (con->stream.stream.write_error) {
-                        ustream_free(&con->stream.stream);
-                        dawn_unregmem(&con->stream.stream);
-                        close(con->fd.fd);
-                        list_del(&con->list);
-                        dawn_free(con);
-                        con = NULL;
-                    }
-                }
-            }
-        }
-        dawn_free(final_str);
-        final_str = NULL;
+    size_t msglen = strlen(msg) + 1;
+    uint32_t final_len = msglen + sizeof(final_len);
+    char *final_str = dawn_malloc(final_len);
+    if (!final_str){
+        dawnlog_error("Ustream error: not enough memory (" STR_QUOTE(__LINE__) ")\n");
+        return;
     }
+    uint32_t *msg_header = (uint32_t *)final_str;
+    *msg_header = htonl(final_len);
+    memcpy(final_str+sizeof(final_len), msg, msglen);
+
+    list_for_each_entry_safe(con, tmp, &tcp_sock_list, list)
+    {
+        if (con->connected) {
+            int len_ustream = ustream_write(&con->stream.stream, final_str, final_len, 0);
+            dawnlog_debug("Ustream send: %d\n", len_ustream);
+            if (len_ustream <= 0) {
+                //ERROR HANDLING!
+                dawnlog_error("Ustream error(" STR_QUOTE(__LINE__) ")!\n");
+                if (con->stream.stream.write_error) {
+                    ustream_free(&con->stream.stream);
+                    dawn_unregmem(&con->stream.stream);
+                    close(con->fd.fd);
+                    list_del(&con->list);
+                    dawn_free(con);
+                    con = NULL;
+                }
+             }
+        }
+    }
+    
+    dawn_free(final_str);
+    final_str = NULL;
 }
 
 void server_to_clients_ping(void)
