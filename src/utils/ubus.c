@@ -690,11 +690,7 @@ int send_blob_attr_via_network(struct blob_attr* msg, char* method) {
         || network_config.network_option == 3) {
         send_tcp(str);
     } else {
-        if (network_config.use_symm_enc) {
-            send_string(str, true);
-        } else {
-            send_string(str, false);
-        }
+        send_string(str, false);
     }
 
     dawn_free(str);

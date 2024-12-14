@@ -31,9 +31,6 @@ SET(SOURCES
         utils/dawn_uci.c
         include/dawn_uci.h
 
-        crypto/crypto.c
-        include/crypto.h
-
         include/utils.h
         utils/utils.c
 
@@ -77,7 +74,7 @@ SET(SOURCES_TEST_HEADER
         test/test_header.c)
 
 SET(LIBS
-        ubox ubus json-c blobmsg_json uci gcrypt iwinfo pthread)
+        ubox ubus json-c blobmsg_json uci iwinfo pthread)
 
 ADD_EXECUTABLE(dawn ${SOURCES})
 ADD_EXECUTABLE(test_storage ${SOURCES_TEST_STORAGE})
